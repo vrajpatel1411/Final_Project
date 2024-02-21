@@ -1,4 +1,9 @@
 ```bash
+
+pip install virtualenv
+
+virtualenv finalproject
+
 \\activate the environment
 
 .\finalproject\Scripts\activate
