@@ -1,0 +1,7 @@
+model
+venv
+.idea
+.ipynb_checkpoints
+model.zip
+requirements.txt.txt
+.__pycache__
