@@ -1,4 +1,6 @@
+from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains.query_constructor.base import AttributeInfo
+from langchain.chains.retrieval import create_retrieval_chain
 from langchain.retrievers.self_query.base import SelfQueryRetriever
 # from langchain.document_loaders.csv_loader import CSVLoader
 # from langchain_text_splitters import CharacterTextSplitter
@@ -14,7 +16,6 @@ from langchain.retrievers import EnsembleRetriever
 
 
 retrieval_qa_chat_prompt = hub.pull("langchain-ai/retrieval-qa-chat")
-print(retrieval_qa_chat_prompt)
 
 nltk.download("punkt")
 
@@ -90,9 +91,14 @@ class prepare_dataset():
             retrievers=[similarity_retriever,query_retriever], weights=[0.5,0.5]
         )
 
+        # combine_docs_chain = create_stuff_documents_chain(
+        #     self.llm, retrieval_qa_chat_prompt
+        # )
+
+        # retrieval_chain = create_retrieval_chain(self.ensemble_retriever, combine_docs_chain)
+
         return self.ensemble_retriever
-
-
+        # return retrieval_chain
 
 
 
