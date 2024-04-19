@@ -11,6 +11,7 @@ import Ensemble_retriever
 from langchain_openai import ChatOpenAI
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains import create_retrieval_chain
+from langchain.chains import create_history_aware_retriever
 
 from langchain_core.prompts import PromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
@@ -60,7 +61,7 @@ class ResponseGenerator:
         return response
 
     def handle_refund(self, input):
-        get_entity = self.ner.predict_entities()
+        # get_entity = self.ner.predict_entities()
         return "Refund Handler"
 
     # Your code to handle refund request
@@ -95,9 +96,54 @@ class ResponseGenerator:
 
     # Your code to track order
 
-    def handle_product_information_search(self, input):
+
+
+    def handle_product_information_search(self, user_query):
         print("Handle Product Information Search Handler")
-        final_question = input
+        final_question = user_query
+        prompt_template1 = """
+                        you are a key part in chatbot working chain. your work is to take chat history and user input in a mind and 
+                        build a context aware sentence of users questions or answer in a way that represent the whole chat.
+                        in short you have to make full sentence out of short answers or questions. 
+
+                        for example just for reference 
+                        lets say in chat bot history conversation is going on between user and aimessage about a phone 
+                        and aimessage asks for more details like which color you want in samsung s20
+                        if user input is just black or i need black color
+                        so you can genereate a short answers or questions based on the conversation going on and user input
+                         like i need black color for samsung s20
+                        you output should be like this  "i need black color for samsung s20" 
+
+                        and another things you have to keep in mind like in chat history is conversation is between user and aimessage about a phone
+                        name samsung s20 and then if user input comes like what is a price
+                        so you have to connect not only to last question but also consider previous conversation from the start
+                        so for this example your output should be like this "what is a price for samsung s20?"
+
+                        you have to look at the conversation going on between user and aimessage before creating a context aware sentence
+                        like what is it about a perticular product or any information and the you have to try to connect that thing in user input 
+                        so retriver can find the best answer.
+                        
+                        one other thing in chat history please give more priority to the last couple of response from the aimessage and user.
+                        sometime in conversations user might change the whole context of chat so keep that in mind.
+                        for example sometimes first user is asking about any phone suddenly user might ask about the 
+                        laptop in this way context is changed.
+                        sometimes user might just answering a question which was asked by aimessage so you just have phrase it well
+                        your work is to make best context aware sentence while doing this dont try to change the whole conversation.
+
+                        user input: {input}
+                        Chat History: {chat_history}
+
+                                    """
+
+        qa_prompt1 = PromptTemplate(
+            input_variables=["input", "chat_history"],
+            template=prompt_template1,
+        )
+        simple_chain = LLMChain(llm=self.llm, prompt=qa_prompt1)
+        results = simple_chain.invoke({"input": user_query, "chat_history": self.chat_history})
+        print(">>>>>>>>>>>>>>>>>>>newwwwwww", results['text'])
+        final_new_question = results["text"]
+
         prompt_template = """You've been an electronic salesperson for 20 years, known for your expertise. Your task 
         is to provide helpful responses based on user input, chat history and context. If multiple products match the 
         query, offer all options. Consider past chat history and ask further questions if needed. Your responses must 
@@ -178,7 +224,7 @@ class ResponseGenerator:
             self.llm, qa_prompt
         )
         retrieval_chain = create_retrieval_chain(self.ensemble.build_ensemble_retriever(), combine_docs_chain)
-        results = retrieval_chain.invoke({"input": final_question, "chat_history": self.chat_history})
+        results = retrieval_chain.invoke({"input": final_new_question, "chat_history": self.chat_history})
 
 
         data = None
@@ -186,12 +232,12 @@ class ResponseGenerator:
             data = json.loads(results['answer'])
             print(data)
         if "answer" in data:
-            self.chat_history.append([HumanMessage(content=final_question), data['answer']["isQuestion"],
+            self.chat_history.append([HumanMessage(content=final_new_question), data['answer']["isQuestion"],
                                       AIMessage(content=data['answer']["response"])])
             self.chat_length = self.chat_length + 1
             return data['answer']['response']
         elif "isQuestion" in data and "response" in data:
-            self.chat_history.append([HumanMessage(content=final_question), data["isQuestion"],
+            self.chat_history.append([HumanMessage(content=final_new_question), data["isQuestion"],
                                       AIMessage(content=data["response"])])
             self.chat_length = self.chat_length + 1
         else:
@@ -227,12 +273,55 @@ class ResponseGenerator:
         self.chat_length = self.chat_length + 1
         return results['text']
 
-    def handle_search(self, input):
+    def handle_search(self, user_query):
         print("Handling search request")
         labels = ["category", "range", "brand", "model name"]
-        entities = self.ner.predict_entities(input, labels)
+        # entities = self.ner.predict_entities(user_query, labels)
         temp = dict()
-        final_question = input
+        final_question = user_query
+
+        prompt_template1 = """
+                        you are a key part in chatbot working chain. your work is to take chat history and user input in a mind and 
+                        build a context aware sentence of users questions or answer in a way that represent the whole chat.
+                        in short you have to make full sentence out of short answers or questions. 
+
+                        for example just for reference 
+                        lets say in chat bot history conversation is going on between user and aimessage about a phone 
+                        and aimessage asks for more details like which color you want in samsung s20
+                        if user input is just black or i need black color
+                        so you can genereate a short answers or questions based on the conversation going on and user input
+                         like i need black color for samsung s20
+                        you output should be like this  "i need black color for samsung s20" 
+
+                        and another things you have to keep in mind like in chat history is conversation is between user and aimessage about a phone
+                        name samsung s20 and then if user input comes like what is a price
+                        so you have to connect not only to last question but also consider previous conversation from the start
+                        so for this example your output should be like this "what is a price for samsung s20?"
+
+                        you have to look at the conversation going on between user and aimessage before creating a context aware sentence
+                        like what is it about a perticular product or any information and the you have to try to connect that thing in user input 
+                        so retriver can find the best answer.
+                        
+                        one other thing in chat history please give more priority to the last couple of response from the aimessage and user.
+                        sometime in conversations user might change the whole context of chat so keep that in mind.
+                        for example sometimes first user is asking about any phone suddenly user might ask about the 
+                        laptop in this way context is changed.
+                        sometimes user might just answering a question which was asked by aimessage so you just have phrase it well
+                        your work is to make best context aware sentence while doing this dont try to change the whole conversation.
+
+                        user input: {input}
+                        Chat History: {chat_history}
+
+                                    """
+        qa_prompt1 = PromptTemplate(
+            input_variables=["input", "chat_history"],
+            template=prompt_template1,
+        )
+        simple_chain = LLMChain(llm=self.llm, prompt=qa_prompt1)
+        results = simple_chain.invoke({"input": user_query, "chat_history": self.chat_history})
+        print(">>>>>>>>>>>>>>>>>>>", results['text'])
+        final_new_question = results["text"]
+
         prompt_template = """You've been an electronic salesperson for 20 years, known for your expertise. Your task 
         is to provide helpful responses based on user input, chat history and context. If multiple products match the 
         query, offer all options. Consider past chat history and ask further questions if needed. Your responses must 
@@ -312,13 +401,13 @@ class ResponseGenerator:
             self.llm, qa_prompt
         )
         retrieval_chain = create_retrieval_chain(self.ensemble.build_ensemble_retriever(), combine_docs_chain)
-        results = retrieval_chain.invoke({"input": final_question, "chat_history": self.chat_history})
+        results = retrieval_chain.invoke({"input": final_new_question, "chat_history": self.chat_history})
         # print(results)
         data=None
         if(results['answer']):
             data = json.loads(results['answer'])
         if "isQuestion" in data and "response" in data:
-            self.chat_history.append([HumanMessage(content=final_question),data["isQuestion"], AIMessage(content=["response"])])
+            self.chat_history.append([HumanMessage(content=final_new_question),data["isQuestion"], AIMessage(content=["response"])])
             self.chat_length = self.chat_length + 1
         else:
             return data
@@ -326,29 +415,50 @@ class ResponseGenerator:
 
     def handleDirectQuestion(self, user_query):
         print("Handle DirectQuestion")
+
         prompt_template1 = """
+                        you are a key part in chatbot working chain. your work is to take chat history and user input in a mind and 
+                        build a context aware sentence of users questions or answer in a way that represent the whole chat.
+                        in short you have to make full sentence out of short answers or questions. 
 
-                        You've been an electronic salesperson for 20 years, known for your expertise. Your task 
-        is to provide helpful responses based on user input, chat history and context. If multiple products match the 
-        query, offer all options. Consider past chat history and ask further questions if needed. Your responses must 
-        be concise and avoid bad answers. Use your experience wisely. Summarize the product information by including it's basic functionality such as key features, specifications, pricing, and suitability for various computing needs such as work, study, entertainment, and light gaming. Responses should be in JSON format. Your aim is 
-        to assist users respectfully and honestly, refraining from harmful or incorrect information. Remember to 
-        provide number bullets when response contains multiple options. Strictly speaking when necessary please list 
-        down available option to the user. Your Output must Contains isQuestion and response. If user don't specify any requirements just summarize the response.
+                        for example just for reference 
+                        lets say in chat bot history conversation is going on between user and aimessage about a phone 
+                        and aimessage asks for more details like which color you want in samsung s20
+                        if user input is just black or i need black color
+                        so you can genereate a short answers or questions based on the conversation going on and user input
+                         like i need black color for samsung s20
+                        you output should be like this  "i need black color for samsung s20" 
 
-            Input Question: {input}
-            Chat History: {chat_history}
+                        and another things you have to keep in mind like in chat history is conversation is between user and aimessage about a phone
+                        name samsung s20 and then if user input comes like what is a price
+                        so you have to connect not only to last question but also consider previous conversation from the start
+                        so for this example your output should be like this "what is a price for samsung s20?"
 
-Based on the user's response to the previous response of the Ai or chatbot, generate a new question to further assist them in finding the right product or solution. User input may include a selected option from the previous options provided by you. 
-                        """
+                        you have to look at the conversation going on between user and aimessage before creating a context aware sentence
+                        like what is it about a perticular product or any information and the you have to try to connect that thing in user input 
+                        so retriver can find the best answer.
+                        
+                        one other thing in chat history please give more priority to the last couple of response from the aimessage and user.
+                        sometime in conversations user might change the whole context of chat so keep that in mind.
+                        for example sometimes first user is asking about any phone suddenly user might ask about the 
+                        laptop in this way context is changed.
+                        sometimes user might just answering a question which was asked by aimessage so you just have phrase it well
+                        your work is to make best context aware sentence while doing this dont try to change the whole conversation.
+
+                        user input: {input}
+                        Chat History: {chat_history}
+
+                                    """
+
         qa_prompt1 = PromptTemplate(
             input_variables=["input", "chat_history"],
             template=prompt_template1,
         )
         simple_chain = LLMChain(llm=self.llm, prompt=qa_prompt1)
-        results = simple_chain.invoke({"input": input, "chat_history": self.chat_history})
-        final_question=results["text"]
-        print(final_question)
+        results = simple_chain.invoke({"input": user_query, "chat_history": self.chat_history})
+        print(">>>>>>>>>>>>>>>>>>>", results['text'])
+        final_new_question=results["text"]
+
         prompt_template2 = """You've been an electronic salesperson for 20 years, known for your expertise. Your task 
         is to provide helpful responses based on user input, chat history and context. If multiple products match the 
         query, offer all options. Consider past chat history and ask further questions if needed. Your responses must 
@@ -415,15 +525,16 @@ Based on the user's response to the previous response of the Ai or chatbot, gene
             self.llm, qa_prompt2
         )
         retrieval_chain = create_retrieval_chain(self.ensemble.build_ensemble_retriever(), combine_docs_chain)
-        results = retrieval_chain.invoke({"input": final_question, "chat_history": self.chat_history})
+        results = retrieval_chain.invoke({"input": final_new_question, "chat_history": self.chat_history})
 
+        print("contextttttttt",results['context'])
 
         # print(results)
         data = None
         if (results['answer']):
             data = json.loads(results['answer'])
         if "isQuestion" in data and "response" in data:
-            self.chat_history.append([HumanMessage(content=final_question), data["isQuestion"],
+            self.chat_history.append([HumanMessage(content=final_new_question), data["isQuestion"],
                                       AIMessage(content=data["response"])])
             self.chat_length = self.chat_length + 1
         else:

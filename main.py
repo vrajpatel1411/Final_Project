@@ -9,9 +9,6 @@ import Response_generator
 locale.getpreferredencoding = lambda: "UTF-8"
 
 
-import NER
-import Bert
-import Ensemble_retriever
 @st.cache_resource(show_spinner=False)
 def load_models():
     n = Response_generator.ResponseGenerator()
