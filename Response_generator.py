@@ -22,7 +22,7 @@ retrieval_qa_chat_prompt = hub.pull("langchain-ai/retrieval-qa-chat")
 class ResponseGenerator:
 
     def __init__(self):
-        sgi
+        self.llm1 = ChatOpenAI(temperature=0.5, openai_api_key="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")
         self.llm = ChatOpenAI(temperature=0.7, openai_api_key="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")
         self.intent_classifier = Bert.BertClassification()
         self.ner = NER.NamedEntityRecognizer()
@@ -39,9 +39,6 @@ class ResponseGenerator:
     def getResponse(self, user_query):
         intents = self.intent_classifier.get_prediction(user_query)
         label = intents[0]['label']
-        # if self.chat_length>0 and self.chat_history[self.chat_length - 1][1]:
-        #     response=self.handleDirectQuestion(user_query)
-        #     return response
         intent_handlers = {
             'get_refund': self.handle_refund,
             'cancel_order': self.handle_order_cancellation,
@@ -100,7 +97,7 @@ class ResponseGenerator:
         final_question = user_query
         prompt_template1 = """
                         you're part of a chatbot system where your role is to understand the context of the 
-        conversation between the user and the chatbot, and then formulate coherent responses based on that context. 
+        conversation between the user and the chatbot, and then formulate coherent question based on that context. 
         Here's a breakdown with examples:
 
         Understanding Context: You analyze the conversation history to grasp the topic being discussed, such as a 
@@ -252,7 +249,7 @@ multiple products. Strictly provide details related to the product user asked.
         print("Handling search request")
 
         prompt_template1 = """you're part of a chatbot system where your role is to understand the context of the 
-        conversation between the user and the chatbot, and then formulate coherent responses based on that context. 
+        conversation between the user and the chatbot, and then formulate coherent question based on that context. 
         Here's a breakdown with examples:
 
        Understanding Context: You analyze the conversation history to grasp the topic being discussed, such as a 
@@ -355,7 +352,7 @@ multiple products. Strictly provide details related to the product user asked.
         try:
             retrieval_chain = create_retrieval_chain(self.ensemble.build_ensemble_retriever(), combine_docs_chain)
             results = retrieval_chain.invoke({"input": final_new_question, "chat_history": self.chat_history})
-            print("NEW RESPONSE FROM PRODUCT  SEARCH")
+
         except:
             return self.handleDirectQuestion(final_new_question)
         print(results)
