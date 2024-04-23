@@ -1,3 +1,4 @@
+import ast
 import json
 
 from langchain.chains.llm import LLMChain
@@ -7,6 +8,7 @@ from langchain.memory import ConversationBufferMemory
 import Bert
 import NER
 import Ensemble_retriever
+import sqlDB
 from langchain_openai import ChatOpenAI
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains import create_retrieval_chain
@@ -19,6 +21,7 @@ from langchain import hub
 retrieval_qa_chat_prompt = hub.pull("langchain-ai/retrieval-qa-chat")
 
 
+
 class ResponseGenerator:
 
     def __init__(self):
@@ -26,10 +29,14 @@ class ResponseGenerator:
         self.llm = ChatOpenAI(temperature=0.7, openai_api_key="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")
         self.intent_classifier = Bert.BertClassification()
         self.ner = NER.NamedEntityRecognizer()
+        self.db = sqlDB.DatabaseConnection()
         self.ensemble = Ensemble_retriever.prepare_dataset()
         self.fixed_entities = dict()
         self.chat_history = []
         self.chat_length = 0
+        self.email = ''
+        self.order_id = ''
+        self.isTrackOrderFollowup = False
         self.memory = ConversationBufferMemory(
             memory_key="chat_history",
             max_len=500,
@@ -39,6 +46,15 @@ class ResponseGenerator:
     def getResponse(self, user_query):
 
         intents = self.intent_classifier.get_prediction(user_query)
+
+
+
+        # print("entity",entity)
+
+        if self.isTrackOrderFollowup:
+            response = self.handle_order_tracking(user_query)
+            return response
+
         label = intents[0]['label']
         intent_handlers = {
             'get_refund': self.handle_refund,
@@ -88,8 +104,153 @@ class ResponseGenerator:
 
     # Your code to bid farewell
 
-    def handle_order_tracking(self, input):
-        return "Order Tracking Handler"
+    def handle_order_tracking(self, user_query):
+        order_details = ''
+        if self.order_id:
+            r = self.db.findOne(
+                f"SELECT order_status,estimate FROM Orders WHERE order_id = {self.order_id}")
+
+            if r:
+                order_details=f"status of order : {r[0]} and estimate time to delivery : {r[1]} days"
+            else:
+                order_details= "no data found"
+
+
+        print("Handle order tracking Handler")
+        final_question = user_query
+        prompt_template1 = """
+                                you're part of a chatbot system where your role is to understand the context of the 
+                conversation between the user and the chatbot, and then formulate coherent question based on that context. 
+                Here's a breakdown with examples:
+
+                Understanding Context: You analyze the conversation history to grasp the topic being discussed, such as a 
+               specific product like the Samsung S20 smartphone. You consider the most recent exchanges to prioritize 
+               relevance and continuity.
+
+        Crafting Context-Aware Sentences: If the previous discussion revolved around features of a specific product, 
+        ensure that responses pertain to that product. For instance, if the user inquired about the features of the Motorola 
+        ThinkPhone, subsequent responses should provide details about the Motorola ThinkPhone, maintaining consistency and 
+        relevance.
+
+        Maintaining Conversation Flow: Adapt responses to align with the ongoing discussion, especially when transitioning 
+        between different products or topics. If the user shifts focus from one product to another, ensure that responses 
+        reflect the updated context.
+
+        Prioritizing Recent Exchanges: While considering the entire conversation, prioritize the most recent exchanges to 
+        ensure timely and relevant responses. This approach helps maintain coherence and addresses the user's current needs 
+        effectively.
+
+        Ensuring Accuracy and Relevance: Strive to provide accurate and relevant information based on the ongoing 
+        conversation. Avoid confusion by strictly providing details related to the product the user asked about, preventing 
+        mix-ups between different products.
+
+        Context Switching: Sometime the last conversation was about the mobile phones and now user is asking for laptop or either vice versa. So remember to switch such context.
+
+        By adhering to these guidelines, you can enhance the chatbot's ability to provide context-aware responses and improve 
+        the overall user experience. Strictly provide details related to the product user asked. Don't confused among 
+        multiple products. Strictly provide details related to the product user asked. 
+                Don't confused among multiple products.
+
+                 When responding to the user's current input, ensure that if the last conversation explicitly asked the user 
+                 for options, prioritize that response as the primary context. This ensures that the current interaction 
+                 remains focused on addressing the options provided, and allows for a seamless continuation of the 
+                 conversation. Additionally, consider edge cases such as scenarios where the user's current input may not 
+                 directly relate to the options provided in the previous response. In such cases, it's essential to 
+                 gracefully acknowledge the divergence while still maintaining coherence in the conversation flow. 
+
+                 Note : Chat_history is python list. So last conversation response is added last in the list. Last 
+                 conversational response should get higher priority.
+
+                 user input: {input} 
+                 Chat History: {chat_history}
+                 response:
+
+                                            """
+        qa_prompt1 = PromptTemplate(
+            input_variables=["input", "chat_history"],
+            template=prompt_template1,
+        )
+        simple_chain = LLMChain(llm=self.llm1, prompt=qa_prompt1)
+        results = simple_chain.invoke({"input": user_query, "chat_history": self.chat_history})
+
+        final_new_question = "The original question by user: " + user_query + ". Question generated by combining both chat history and current question : " + \
+                             results['text'] + "."
+
+        entity_names = ["email", "order id"]
+        entity = self.ner.predict_entities(final_new_question, entity_names)
+
+        if entity:
+            # Filter entries with score greater than 90
+            filtered_data = [item for item in entity if item['score'] > 0.9]
+
+            # If there are any entries with score above 90, extract label and text
+            if filtered_data:
+                label = filtered_data[0]['label']
+                text = filtered_data[0]['text']
+                print(f"Label: {label}, Text: {text}")
+                if label == "email":
+                    self.email = text
+                if label == "order id":
+                    self.order_id = text
+            else:
+                print("No entries found with score above 90")
+
+        prompt_template = """
+        you are a customer service representative you customer's inquiries about the tracking their order
+        your job is to develop a follow up questions or answer the customers questions based in provided context
+        
+        if Order Id is empty then ask customer for order Id 
+        and if you have the order id and Retrieved Document then answer the customers questions based on Retrieved Document. 
+        
+                 Note : Chat_history is python list. So last conversation response is added last in the list. Last 
+                 conversational response should get higher priority.
+
+                                User Input : {input} 
+                                Chat History : {chat_history} 
+                                Retrieved Document: {context}
+                                Order Id : {order_id}
+                                response : 
+
+        take these examples as reference 
+        user: [user ask to order tracking]
+        AI : [ask for order id if order id is empty]
+        
+        you should just return response like
+        text : "your response"
+        isTrackOrderFollowup : "boolean"
+        
+        
+        in your response isTrackOrderFollowup should True if are asking for more information from user and False if 
+        you are just answer the customers questions based on Retrieved Document.
+        
+        your final response should be in JSON format strictly instead of string with just two key fields "text" and "isTrackOrderFollowup"
+                                ----
+
+                                                     """
+        qa_prompt = PromptTemplate(
+            input_variables=["input", "chat_history", "context","order_id"],
+            template=prompt_template,
+        )
+
+        simple_chain = LLMChain(llm=self.llm, prompt=qa_prompt)
+        results = simple_chain.invoke({"input": user_query, "chat_history": self.chat_history,"order_id":self.order_id,"context":order_details})
+
+        print("???????????????",results["text"])
+
+        text = ''
+        if results['text']:
+            text = json.loads(results["text"])["text"]
+            self.isTrackOrderFollowup = json.loads(results["text"])['isTrackOrderFollowup']
+
+        self.chat_history.append([HumanMessage(content=final_new_question), AIMessage(content=text)])
+        self.chat_length = len(self.chat_history)
+
+        if self.chat_length > 5:
+            self.chat_history = self.chat_history[1:]
+        print(self.chat_history)
+
+
+        return text
 
     # Your code to track order
 

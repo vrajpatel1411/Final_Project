@@ -10,3 +10,4 @@ langchainhub
 sentence-transformers
 chromadb
 lark
+mysql-connector-python
