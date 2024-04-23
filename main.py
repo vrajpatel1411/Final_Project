@@ -6,6 +6,8 @@ import streamlit as st
 from time import sleep
 import locale
 import Response_generator
+from sqlDB import DatabaseConnection
+
 locale.getpreferredencoding = lambda: "UTF-8"
 
 
@@ -15,7 +17,10 @@ def load_models():
     return n
 
 
-rg=load_models()
+
+
+rg = load_models()
+
 
 def main():
     st.set_page_config(page_title="Shopper's Genie", page_icon=":shopping_trolley:")
@@ -40,14 +45,14 @@ def main():
     if st.session_state.messages[-1]["role"] != "Shopper's Genie":
         with st.chat_message("Shopper's Genie"):
             with st.spinner("Gathering the information now..."):
-                response=rg.getResponse(prompt)
+                response = rg.getResponse(prompt)
                 st.write(response)
                 message = {"role": "Shopper's Genie", "content": response}
                 st.session_state.messages.append(message)
 
+
 # def set_up_dataset():
 if __name__ == '__main__':
     main()
-
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
