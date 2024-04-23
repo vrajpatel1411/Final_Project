@@ -37,6 +37,7 @@ class ResponseGenerator:
         )
 
     def getResponse(self, user_query):
+
         intents = self.intent_classifier.get_prediction(user_query)
         label = intents[0]['label']
         intent_handlers = {
@@ -94,51 +95,53 @@ class ResponseGenerator:
 
     def handle_product_information_search(self, user_query):
         print("Handle Product Information Search Handler")
-        final_question = user_query
         prompt_template1 = """
-                        you're part of a chatbot system where your role is to understand the context of the 
-        conversation between the user and the chatbot, and then formulate coherent question based on that context. 
-        Here's a breakdown with examples:
+        you're part of a chatbot system where your role is to understand the context of the
+        conversation between the user and the chatbot, and then create a new question based on current user-query and the chat history.
 
-        Understanding Context: You analyze the conversation history to grasp the topic being discussed, such as a 
-       specific product like the Samsung S20 smartphone. You consider the most recent exchanges to prioritize 
-       relevance and continuity.
+        Strictly you should make a question not a sentence or statement.
 
-Crafting Context-Aware Sentences: If the previous discussion revolved around features of a specific product, 
-ensure that responses pertain to that product. For instance, if the user inquired about the features of the Motorola 
-ThinkPhone, subsequent responses should provide details about the Motorola ThinkPhone, maintaining consistency and 
+        Here's a breakdown with examples
+
+        Understanding Context: You analyze the conversation history to grasp the topic being discussed, such as a
+        specific product like the Samsung S20 smartphone. You consider the most recent exchanges to prioritize
+        relevance and continuity.
+
+Crafting Context-Aware Sentences: If the previous discussion revolved around features of a specific product,
+ensure that responses pertain to that product. For instance, if the user inquired about the features of the Motorola
+ThinkPhone, subsequent responses should provide details about the Motorola ThinkPhone, maintaining consistency and
 relevance.
 
-Maintaining Conversation Flow: Adapt responses to align with the ongoing discussion, especially when transitioning 
-between different products or topics. If the user shifts focus from one product to another, ensure that responses 
+Maintaining Conversation Flow: Adapt responses to align with the ongoing discussion, especially when transitioning
+between different products or topics. If the user shifts focus from one product to another, ensure that responses
 reflect the updated context.
 
-Prioritizing Recent Exchanges: While considering the entire conversation, prioritize the most recent exchanges to 
-ensure timely and relevant responses. This approach helps maintain coherence and addresses the user's current needs 
+Prioritizing Recent Exchanges: While considering the entire conversation, prioritize the most recent exchanges to
+ensure timely and relevant responses. This approach helps maintain coherence and addresses the user's current needs
 effectively.
 
-Ensuring Accuracy and Relevance: Strive to provide accurate and relevant information based on the ongoing 
-conversation. Avoid confusion by strictly providing details related to the product the user asked about, preventing 
+Ensuring Accuracy and Relevance: Strive to provide accurate and relevant information based on the ongoing
+conversation. Avoid confusion by strictly providing details related to the product the user asked about, preventing
 mix-ups between different products.
 
 Context Switching: Sometime the last conversation was about the mobile phones and now user is asking for laptop or either vice versa. So remember to switch such context.
 
-By adhering to these guidelines, you can enhance the chatbot's ability to provide context-aware responses and improve 
-the overall user experience. Strictly provide details related to the product user asked. Don't confused among 
-multiple products. Strictly provide details related to the product user asked. 
+By adhering to these guidelines, you can enhance the chatbot's ability to provide context-aware responses and improve
+the overall user experience. Strictly provide details related to the product user asked. Don't confused among
+multiple products. Strictly provide details related to the product user asked.
         Don't confused among multiple products.
-        
-         When responding to the user's current input, ensure that if the last conversation explicitly asked the user 
-         for options, prioritize that response as the primary context. This ensures that the current interaction 
-         remains focused on addressing the options provided, and allows for a seamless continuation of the 
-         conversation. Additionally, consider edge cases such as scenarios where the user's current input may not 
-         directly relate to the options provided in the previous response. In such cases, it's essential to 
-         gracefully acknowledge the divergence while still maintaining coherence in the conversation flow. 
-         
-         Note : Chat_history is python list. So last conversation response is added last in the list. Last 
+
+         When responding to the user's current input, ensure that if the last conversation explicitly asked the user
+         for options, prioritize that response as the primary context. This ensures that the current interaction
+         remains focused on addressing the options provided, and allows for a seamless continuation of the
+         conversation. Additionally, consider edge cases such as scenarios where the user's current input may not
+         directly relate to the options provided in the previous response. In such cases, it's essential to
+         gracefully acknowledge the divergence while still maintaining coherence in the conversation flow.
+
+         Note : Chat_history is python list. So last conversation response is added last in the list. Last
          conversational response should get higher priority.
-         
-         user input: {input} 
+
+         user input: {input}
          Chat History: {chat_history}
          response:
 
@@ -248,9 +251,14 @@ multiple products. Strictly provide details related to the product user asked.
     def handle_search(self, user_query):
         print("Handling search request")
 
-        prompt_template1 = """you're part of a chatbot system where your role is to understand the context of the 
-        conversation between the user and the chatbot, and then formulate coherent question based on that context. 
-        Here's a breakdown with examples:
+        prompt_template1 = """
+        
+        you're part of a chatbot system where your role is to understand the context of the 
+        conversation between the user and the chatbot, and then create a new question based on current user-query and the chat history. 
+        
+        Strictly you should make a question not a sentence or statement.
+        
+       
 
        Understanding Context: You analyze the conversation history to grasp the topic being discussed, such as a 
        specific product like the Samsung S20 smartphone. You consider the most recent exchanges to prioritize 
@@ -351,15 +359,15 @@ multiple products. Strictly provide details related to the product user asked.
         )
         try:
             retrieval_chain = create_retrieval_chain(self.ensemble.build_ensemble_retriever(), combine_docs_chain)
-            results = retrieval_chain.invoke({"input": final_new_question, "chat_history": self.chat_history})
+            results = retrieval_chain.invoke({"input": user_query, "chat_history": self.chat_history})
 
         except:
-            return self.handleDirectQuestion(final_new_question)
+            return self.handleDirectQuestion(user_query)
         print(results)
 
         print("==============================================")
 
-        self.chat_history.append([HumanMessage(content=final_new_question), AIMessage(content=results['answer'])])
+        self.chat_history.append([HumanMessage(content=user_query), AIMessage(content=results['answer'])])
         self.chat_length = len(self.chat_history)
         print(self.chat_history)
         if self.chat_length > 5:
