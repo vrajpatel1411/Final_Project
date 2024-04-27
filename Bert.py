@@ -6,8 +6,8 @@ class BertClassification:
     model_path = "model"
 
     def __init__(self):
-        self.model=BertForSequenceClassification.from_pretrained(self.model_path,use_auth_token=True)
-        self.tokenizer=BertTokenizerFast.from_pretrained(self.model_path,use_auth_token=True)
+        self.model=BertForSequenceClassification.from_pretrained(self.model_path,use_auth_token="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")
+        self.tokenizer=BertTokenizerFast.from_pretrained(self.model_path,use_auth_token="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")
         self.pipeline=pipeline("text-classification", model=self.model, tokenizer=self.tokenizer)
 
     def get_prediction(self, text):
